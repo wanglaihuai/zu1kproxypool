@@ -12,17 +12,20 @@ import (
 	"github.com/zu1k/proxypool/pkg/provider"
 )
 
-const version = "v0.3.0"
+const version = "v0.3.1"
 
 var router *gin.Engine
 
 func setupRouter() {
-	router = gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+	router = gin.New()
+	router.Use(gin.Recovery())
 	router.LoadHTMLGlob("assets/html/*")
 
 	router.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.html", gin.H{
 			"domain":               config.Config.Domain,
+			"getters_count":        cache.GettersCount,
 			"all_proxies_count":    cache.AllProxiesCount,
 			"ss_proxies_count":     cache.SSProxiesCount,
 			"ssr_proxies_count":    cache.SSRProxiesCount,
