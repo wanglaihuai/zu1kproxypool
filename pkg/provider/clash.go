@@ -3,19 +3,18 @@ package provider
 import (
 	"strings"
 
+	"github.com/zu1k/proxypool/pkg/tool"
+
 	"github.com/zu1k/proxypool/pkg/proxy"
 )
 
 type Clash struct {
-	Proxies    proxy.ProxyList `yaml:"proxies"`
-	Types      string          `yaml:"type"`
-	Country    string          `yaml:"country"`
-	NotCountry string          `yaml:"not_country"`
+	Base
 }
 
 func (c Clash) CleanProxies() (proxies proxy.ProxyList) {
 	proxies = make(proxy.ProxyList, 0)
-	for _, p := range c.Proxies {
+	for _, p := range *c.Proxies {
 		if checkClashSupport(p) {
 			proxies = append(proxies, p)
 		}
@@ -24,68 +23,15 @@ func (c Clash) CleanProxies() (proxies proxy.ProxyList) {
 }
 
 func (c Clash) Provide() string {
+	c.preFilter()
+
 	var resultBuilder strings.Builder
 	resultBuilder.WriteString("proxies:\n")
-
-	needFilterType := true
-	needFilterCountry := true
-	needFilterNotCountry := true
-	if c.Types == "" || c.Types == "all" {
-		needFilterType = false
-	}
-	if c.Country == "" || c.Country == "all" {
-		needFilterCountry = false
-	}
-	if c.NotCountry == "" {
-		needFilterNotCountry = false
-	}
-	types := strings.Split(c.Types, ",")
-	countries := strings.Split(c.Country, ",")
-	notCountries := strings.Split(c.NotCountry, ",")
-
-	for _, p := range c.Proxies {
-		if !checkClashSupport(p) {
-			continue
+	for _, p := range *c.Proxies {
+		if checkClashSupport(p) {
+			resultBuilder.WriteString(p.ToClash() + "\n")
 		}
-
-		if needFilterType {
-			typeOk := false
-			for _, t := range types {
-				if p.TypeName() == t {
-					typeOk = true
-					break
-				}
-			}
-			if !typeOk {
-				goto exclude
-			}
-		}
-
-		if needFilterNotCountry {
-			for _, c := range notCountries {
-				if strings.Contains(p.BaseInfo().Name, c) {
-					goto exclude
-				}
-			}
-		}
-
-		if needFilterCountry {
-			countryOk := false
-			for _, c := range countries {
-				if strings.Contains(p.BaseInfo().Name, c) {
-					countryOk = true
-					break
-				}
-			}
-			if !countryOk {
-				goto exclude
-			}
-		}
-
-		resultBuilder.WriteString(p.ToClash() + "\n")
-	exclude:
 	}
-
 	return resultBuilder.String()
 }
 
@@ -93,17 +39,17 @@ func checkClashSupport(p proxy.Proxy) bool {
 	switch p.TypeName() {
 	case "ssr":
 		ssr := p.(*proxy.ShadowsocksR)
-		if checkInList(ssrCipherList, ssr.Cipher) && checkInList(ssrProtocolList, ssr.Protocol) && checkInList(ssrObfsList, ssr.Obfs) {
+		if tool.CheckInList(proxy.SSRCipherList, ssr.Cipher) && tool.CheckInList(ssrProtocolList, ssr.Protocol) && tool.CheckInList(ssrObfsList, ssr.Obfs) {
 			return true
 		}
 	case "vmess":
 		vmess := p.(*proxy.Vmess)
-		if checkInList(vmessCipherList, vmess.Cipher) {
+		if tool.CheckInList(vmessCipherList, vmess.Cipher) {
 			return true
 		}
 	case "ss":
 		ss := p.(*proxy.Shadowsocks)
-		if checkInList(ssCipherList, ss.Cipher) {
+		if tool.CheckInList(proxy.SSCipherList, ss.Cipher) {
 			return true
 		}
 	case "trojan":
@@ -112,30 +58,6 @@ func checkClashSupport(p proxy.Proxy) bool {
 		return false
 	}
 	return false
-}
-
-var ssrCipherList = []string{
-	"aes-128-cfb",
-	"aes-192-cfb",
-	"aes-256-cfb",
-	"aes-128-ctr",
-	"aes-192-ctr",
-	"aes-256-ctr",
-	"aes-128-ofb",
-	"aes-192-ofb",
-	"aes-256-ofb",
-	"des-cfb",
-	"bf-cfb",
-	"cast5-cfb",
-	"rc4-md5",
-	"chacha20-ietf",
-	"salsa20",
-	"camellia-128-cfb",
-	"camellia-192-cfb",
-	"camellia-256-cfb",
-	"idea-cfb",
-	"rc2-cfb",
-	"seed-cfb",
 }
 
 var ssrObfsList = []string{
@@ -165,21 +87,4 @@ var vmessCipherList = []string{
 	"aes-128-gcm",
 	"chacha20-poly1305",
 	"none",
-}
-
-var ssCipherList = []string{
-	"aes-128-gcm",
-	"aes-192-gcm",
-	"aes-256-gcm",
-	"aes-128-cfb",
-	"aes-192-cfb",
-	"aes-256-cfb",
-	"aes-128-ctr",
-	"aes-192-ctr",
-	"aes-256-ctr",
-	"rc4-md5",
-	"chacha20-ietf",
-	"xchacha20",
-	"chacha20-ietf-poly1305",
-	"xchacha20-ietf-poly1305",
 }

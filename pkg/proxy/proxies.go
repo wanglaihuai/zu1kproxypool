@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 )
 
 type ProxyList []Proxy
@@ -63,23 +62,11 @@ func (ps ProxyList) Sort() ProxyList {
 	return ps
 }
 
-func (ps ProxyList) NameAddCounrty() ProxyList {
+func (ps ProxyList) NameSetCounrty() ProxyList {
 	num := len(ps)
-	wg := &sync.WaitGroup{}
-	wg.Add(num)
 	for i := 0; i < num; i++ {
-		ii := i
-		go func() {
-			defer wg.Done()
-			_, country, err := geoIp.Find(ps[ii].BaseInfo().Server)
-			if err != nil {
-				country = "🏁 ZZ"
-			}
-			ps[ii].SetName(fmt.Sprintf("%s", country))
-			//ps[ii].SetIP(ip)
-		}()
+		ps[i].SetName(ps[i].BaseInfo().Country)
 	}
-	wg.Wait()
 	return ps
 }
 
@@ -104,23 +91,9 @@ func (ps ProxyList) NameReIndex() ProxyList {
 func (ps ProxyList) NameAddTG() ProxyList {
 	num := len(ps)
 	for i := 0; i < num; i++ {
-		ps[i].SetName(fmt.Sprintf("%s %s", ps[i].BaseInfo().Name, "@peekfun"))
+		ps[i].SetName(fmt.Sprintf("%s %s", ps[i].BaseInfo().Name, "TG@peekfun"))
 	}
 	return ps
-}
-
-func Deduplication(src ProxyList) ProxyList {
-	result := make(ProxyList, 0, len(src))
-	temp := map[string]struct{}{}
-	for _, item := range src {
-		if item != nil {
-			if _, ok := temp[item.Identifier()]; !ok {
-				temp[item.Identifier()] = struct{}{}
-				result = append(result, item)
-			}
-		}
-	}
-	return result
 }
 
 func (ps ProxyList) Clone() ProxyList {
@@ -131,4 +104,26 @@ func (ps ProxyList) Clone() ProxyList {
 		}
 	}
 	return result
+}
+
+// Derive 将原有节点中的ss和ssr互相转换进行衍生
+func (ps ProxyList) Derive() ProxyList {
+	proxies := ps
+	for _, p := range ps {
+		if p == nil {
+			continue
+		}
+		if p.TypeName() == "ss" {
+			ssr, err := Convert2SSR(p)
+			if err == nil {
+				proxies = append(proxies, ssr)
+			}
+		} else if p.TypeName() == "ssr" {
+			ss, err := Convert2SS(p)
+			if err == nil {
+				proxies = append(proxies, ss)
+			}
+		}
+	}
+	return proxies.Deduplication()
 }

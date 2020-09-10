@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zu1k/proxypool/internal/cache"
+	"github.com/zu1k/proxypool/internal/database"
 	"github.com/zu1k/proxypool/pkg/provider"
 	"github.com/zu1k/proxypool/pkg/proxy"
 )
@@ -19,7 +20,8 @@ func CrawlGo() {
 		wg.Add(1)
 		go g.Get2Chan(pc, wg)
 	}
-	proxies := cache.GetProxies("proxies")
+	proxies := cache.GetProxies("allproxies")
+	proxies = append(proxies, database.GetAllProxies()...)
 	go func() {
 		wg.Wait()
 		close(pc)
@@ -29,13 +31,20 @@ func CrawlGo() {
 			proxies = append(proxies, node)
 		}
 	}
-	// 节点去重
-	proxies = proxies.Deduplication()
+	// 节点衍生并去重
+	proxies = proxies.Deduplication().Derive()
 	log.Println("CrawlGo node count:", len(proxies))
-	proxies = provider.Clash{Proxies: proxies}.CleanProxies()
+	proxies = provider.Clash{
+		provider.Base{
+			Proxies: &proxies,
+		},
+	}.CleanProxies()
 	log.Println("CrawlGo cleaned node count:", len(proxies))
-	proxies.NameAddCounrty().Sort().NameAddIndex().NameAddTG()
+	proxies.NameSetCounrty().Sort().NameAddIndex().NameAddTG()
 	log.Println("Proxy rename DONE!")
+
+	// 全节点存储到数据库
+	database.SaveProxyList(proxies)
 
 	cache.SetProxies("allproxies", proxies)
 	cache.AllProxiesCount = proxies.Len()
@@ -54,10 +63,18 @@ func CrawlGo() {
 	log.Println("Now proceed proxy health check...")
 	proxies = proxy.CleanBadProxiesWithGrpool(proxies)
 	log.Println("CrawlGo clash usable node count:", len(proxies))
-	proxies.NameReIndex()
+	proxies.NameReIndex().NameAddTG()
 	cache.SetProxies("proxies", proxies)
 	cache.UsefullProxiesCount = proxies.Len()
 
-	cache.SetString("clashproxies", provider.Clash{Proxies: proxies}.Provide())
-	cache.SetString("surgeproxies", provider.Surge{Proxies: proxies}.Provide())
+	cache.SetString("clashproxies", provider.Clash{
+		provider.Base{
+			Proxies: &proxies,
+		},
+	}.Provide())
+	cache.SetString("surgeproxies", provider.Surge{
+		provider.Base{
+			Proxies: &proxies,
+		},
+	}.Provide())
 }
