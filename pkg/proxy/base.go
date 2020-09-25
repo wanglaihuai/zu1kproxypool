@@ -77,7 +77,7 @@ func ParseProxyFromLink(link string) (p Proxy, err error) {
 	}
 	ip, country, err := geoIp.Find(p.BaseInfo().Server)
 	if err != nil {
-		country = "🏁 ZZ"
+		country = "ZZ"
 	}
 	p.SetCountry(country)
 	// trojan依赖域名？
