@@ -6,8 +6,22 @@
 
 ## 部署
 
-可用 Docker Compose 快速部署我修改的版本，配置文件见 [docker-compose.yml](https://github.com/ClarkeCheng/proxypool/blob/master/docker-compose.yml) 。
+### Docker
+
+```bash
+docker run -d --name proxypool -v /your/path/config.yaml:/proxypool-src/config.yaml -v /your/path/source.yaml:/proxypool-src/source.yaml clarkecheng/proxypool
+```
+
+### Docker Compose
+
+```bash
+mkdir proxypool
+wget https://raw.githubusercontent.com/ClarkeCheng/proxypool/master/docker-compose.yml
+docker-compose up -d
+```
 
 ## 更新日志
 
-- 2020 年 9 月 10 日更新至 v0.3.10
+- 2020 年 9 月 10 日，更新至 v0.3.10，移除代理名字中的广告
+- 2020 年 9 月 25 日，移除代理名字中的 emoji
+- 2020 年 11 月 23 日，移除在线聊天、谷歌统计、首页中的广告；为订阅链接增加超链接，增加多平台 Docker 镜像
